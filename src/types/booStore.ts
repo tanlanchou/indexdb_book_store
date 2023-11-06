@@ -1,16 +1,17 @@
 export type BookInfo = {
-    title: string,
-    cover: string,
-    description: string,
-    creator: string,
-    identifier: string,
-    language: string,
-    modified_date: Date,
-    orientation: string,
-    pubdate: Date,
-    publisher: string,
-    rights: string,
-    content: ArrayBuffer
+    title?: string,
+    cover?: string,
+    description?: string,
+    creator?: string,
+    identifier?: string,
+    language?: string,
+    modified_date?: Date,
+    orientation?: string,
+    pubdate?: Date,
+    publisher?: string,
+    rights?: string,
+    content?: ArrayBuffer
+    push_date?: Date,
 }
 
 export interface IOptions {
