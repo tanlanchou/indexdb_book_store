@@ -2,6 +2,7 @@
 import { message } from 'ant-design-vue';
 import { useRouter } from 'vue-router';
 import cloneDeep from "lodash/cloneDeep"
+import { getImageDataByUrl } from '../common/img';
 
 const router = useRouter();
 const toList = function () {
@@ -11,49 +12,65 @@ const toList = function () {
 import { ref } from 'vue'
 import epub from 'epubjs'
 import { type BookInfo } from '../types/booStore';
-import { addBook } from '../api/bookStore'
+import { addBook, existBook } from '../api/bookStore'
+import { keyToWords } from '@/common/words';
 
 const spinning = ref(false);
-let info = ref<BookInfo>({});
+const info = ref<BookInfo>({});
+const enableAdd = ref(true);
+
 const fileChange = (file: any) => {
     if (file) {
         spinning.value = true;
+        enableAdd.value = true;
         const reader = new FileReader()
-        reader.onload = function (e) {
+        reader.onload = async function (e) {
             const fileData: ArrayBuffer = e.target!.result as ArrayBuffer;
             if (fileData) {
-                const book = epub(fileData, {});
-                Promise.all([
-                    book.coverUrl(),
-                    book.loaded.metadata
-                ]).then(results => {
-                    if (results[0]) {
-                        info.value.cover = results[0]
-                    }
-                    if (results[1]) {
-                        const meta = results[1];
-                        info.value.title = meta.title;
-                        info.value.creator = meta.creator;
-                        info.value.publisher = meta.publisher;
-                        info.value.description = meta.description;
-                        info.value.identifier = meta.identifier;
-                        info.value.language = meta.language;
-                        if (meta.modified_date)
-                            info.value.modified_date = new Date(meta.modified_date);
-                        info.value.orientation = meta.orientation;
-                        if (meta.pubdate)
-                            info.value.pubdate = new Date(meta.pubdate);
-                        info.value.rights = meta.rights;
+                try {
+                    const book = epub(fileData, {});
+                    const blobCover = await book.coverUrl();
+                    info.value.cover = blobCover || undefined;
+                    if (blobCover) {
+                        const base64Cover = await getImageDataByUrl(blobCover);
+                        info.value.cover = base64Cover.data;
                     }
 
+                    const meta = await book.loaded.metadata;
+                    info.value.title = meta.title;
+                    info.value.creator = meta.creator;
+                    info.value.publisher = meta.publisher;
+                    info.value.description = meta.description;
+                    info.value.identifier = meta.identifier;
+                    info.value.language = meta.language;
+                    if (meta.modified_date)
+                        info.value.modified_date = new Date(meta.modified_date);
+                    info.value.orientation = meta.orientation;
+                    if (meta.pubdate)
+                        info.value.pubdate = new Date(meta.pubdate);
+                    info.value.rights = meta.rights;
                     info.value.content = fileData;
-                }).catch(ex => {
+                    const existResult = await existBook(info.value.title);
+                    if (existResult.data === true) {
+                        message.error("已存在相同图书，请重新上传其他图书");
+                        setTimeout(() => {
+                            clear();
+                        }, 1500);
+                    }
+                    else {
+                        enableAdd.value = false;
+                    }
+                }
+                catch (ex: any) {
                     console.error(ex);
-                    message.error("加在图书失败")
-                }).finally(() => {
-                    spinning.value = false
-                })
+                    message.error("加在图书失败");
+                }
             }
+            else {
+                message.error("获取图书失败，请确认文件是否完整");
+            }
+
+            spinning.value = false
         }
 
         reader.onerror = function () {
@@ -101,12 +118,16 @@ const save = function () {
         }
     })
 }
+
+const clear = function () {
+    info.value = {};
+}
 </script>
 
 <template>
     <a-page-header class="header" title="图书室" sub-title="新增图书" @back="toList">
         <template #extra>
-            <a-button key="3" type="primary" :disabled="!info.title" @click="save">保存图书</a-button>
+            <a-button key="3" type="primary" :disabled="enableAdd" @click="save">保存图书</a-button>
         </template>
     </a-page-header>
 
@@ -124,13 +145,12 @@ const save = function () {
             </a-spin>
 
             <a-card v-if="!!info.title">
-
                 <a-descriptions :title="info.title" bordered>
                     <a-descriptions-item :span="3" label="封面">
                         <a-image :src="info.cover" />
                     </a-descriptions-item>
                     <template v-for="(value, key) in info" :key="key">
-                        <a-descriptions-item :span="3" v-if="!!value && key !== 'cover'" :label="key">
+                        <a-descriptions-item :span="3" v-if="!!value && key !== 'cover' && key !== 'content'" :label="keyToWords(key)">
                             {{ value }}
                         </a-descriptions-item>
                     </template>

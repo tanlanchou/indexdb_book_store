@@ -1,3 +1,4 @@
+import { errorHaddler, errorHaddlerWithDbClose } from '@/common/errorHadller'
 import type { BookInfo, IOptions, IResult } from '@/types/booStore'
 
 const dbName = 'bookStore'
@@ -79,27 +80,14 @@ export const addBook = function (bookInfo: BookInfo): Promise<IResult> {
           resolve({ status: 200, message: '添加成功' })
         }
 
-        request.onerror = (event: any) => {
-          db.close()
-          if (event.target.error) {
-            reject({ status: 500, message: `添加失败,${event.target.error.message}`, data: event })
-          } else {
-            reject({ status: 500, message: '添加失败', data: event })
-          }
-        }
+        request.onerror = errorHaddlerWithDbClose(db, reject, '添加失败')
       },
-      onerror: (event: any) => {
-        if (event.target.error) {
-          reject({ status: 500, message: `添加失败,${event.target.error.message}`, data: event })
-        } else {
-          reject({ status: 500, message: '添加失败', data: event })
-        }
-      }
+      onerror: errorHaddler(reject, `添加失败`)
     })
   })
 }
 
-export const getBooks = function () {
+export const getBooks = function (): Promise<IResult> {
   return new Promise((resolve, reject) => {
     const dbRequest = openIndexDb(dbName, version, {
       onupgradeneeded: upgradeneededVersionOne,
@@ -107,7 +95,102 @@ export const getBooks = function () {
         const db = event.target.result as IDBDatabase
         const transaction = db.transaction('bookStore', 'readonly')
         const objectStore = transaction.objectStore('bookStore')
-      }
+
+        const query = IDBKeyRange.upperBound(new Date())
+        const orderBy = ['push_date', 'desc']
+
+        const results = objectStore.getAll(query)
+        results.onsuccess = (event: any) => {
+          db.close()
+          resolve({
+            status: 200,
+            message: 'ok',
+            data: event.target.result || []
+          })
+        }
+
+        results.onerror = errorHaddlerWithDbClose(db, reject, `获取数据失败`)
+      },
+      onerror: errorHaddler(reject, `获取数据失败`)
+    })
+  })
+}
+
+/**
+ * @description 由于根本没有拿到 ISBN， 所以打算暂时根据title来判断
+ * @param title
+ */
+export const existBook = function (title: string): Promise<IResult> {
+  return new Promise((resolve, reject) => {
+    openIndexDb(dbName, version, {
+      onupgradeneeded: upgradeneededVersionOne,
+      onsuccess: (event: any) => {
+        const db = event.target.result as IDBDatabase
+        const transaction = db.transaction('bookStore', 'readonly')
+        const objectStore = transaction.objectStore('bookStore')
+
+        const results = objectStore.index('title').get(title)
+        results.onerror = errorHaddlerWithDbClose(db, reject, '查寻图书失败')
+        results.onsuccess = function (event: any) {
+          db.close()
+          resolve({
+            status: 200,
+            message: 'ok',
+            data: !!event.target.result
+          })
+        }
+      },
+      onerror: errorHaddler(reject, '查寻图书失败')
+    })
+  })
+}
+
+export const deleteBook = function (id: number) {
+  return new Promise((resolve, reject) => {
+    openIndexDb(dbName, version, {
+      onupgradeneeded: upgradeneededVersionOne,
+      onsuccess: (event: any) => {
+        const db = event.target.result as IDBDatabase
+        const transaction = db.transaction('bookStore', 'readwrite')
+        const objectStore = transaction.objectStore('bookStore')
+
+        const results = objectStore.delete(id)
+        results.onerror = errorHaddlerWithDbClose(db, reject, '删除图书失败')
+        results.onsuccess = function () {
+          db.close()
+          resolve({
+            status: 200,
+            message: 'ok'
+          })
+        }
+      },
+      onerror: errorHaddler(reject, '删除图书成功')
+    })
+  })
+}
+
+export const getBook = function (id: any) {
+  return new Promise((resolve, reject) => {
+    openIndexDb(dbName, version, {
+      onupgradeneeded: upgradeneededVersionOne,
+      onsuccess: (event: any) => {
+        const db = event.target.result as IDBDatabase
+        const transaction = db.transaction('bookStore', 'readonly')
+        const objectStore = transaction.objectStore('bookStore')
+
+        const results = objectStore.get(id as number)
+        results.onerror = errorHaddlerWithDbClose(db, reject, '获取图书失败')
+        results.onsuccess = function (event: any) {
+          debugger;
+          db.close()
+          resolve({
+            status: 200,
+            message: 'ok',
+            data: event.target.result
+          })
+        }
+      },
+      onerror: errorHaddler(reject, '获取图书失败')
     })
   })
 }
