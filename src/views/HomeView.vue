@@ -3,7 +3,7 @@ import { useRouter } from 'vue-router';
 import { onMounted, ref } from 'vue';
 import { getBooks, deleteBook } from '@/api/bookStore';
 import { message } from 'ant-design-vue';
-import { IResult } from '../types/booStore';
+import { type IResult } from '../types/booStore';
 import { EditOutlined, EyeOutlined, DeleteOutlined } from '@ant-design/icons-vue';
 
 
@@ -39,7 +39,7 @@ const viewDetail = function (item: any) {
 import { ExclamationCircleOutlined } from '@ant-design/icons-vue';
 import { createVNode } from 'vue';
 import { Modal } from 'ant-design-vue';
-const deleteBookAction = function (item) {
+const deleteBookAction = function (item: any) {
   Modal.confirm({
     title: `确定删除,${item.title}`,
     icon: createVNode(ExclamationCircleOutlined),

@@ -8,6 +8,7 @@ import { message } from 'ant-design-vue';
 
 const route = useRoute();
 const router = useRouter();
+let book = null;
 
 function goHome(word: string) {
     message.error(word);
@@ -22,11 +23,16 @@ onMounted(() => {
         goHome(`参数错误，请检查链接`);
     }
     else {
-        getBook(id).then((res: any) => {
+        getBook(Number(id)).then((res: any) => {
             if (res.status === 200) {
                 const bookResult = res.data;
-                const book = epub(bookResult.content);
-                const rendition = book.renderTo('bookContent',{width: 600, height: 400});
+                book = epub(bookResult.content);
+
+                // const firstPage = book.spine.get(0);
+                // const result = book.
+                const rendition = book.renderTo('bookContent', {
+                    stylesheet: "/book.css"
+                });
                 var displayed = rendition.display();
             }
             else {
@@ -40,7 +46,26 @@ onMounted(() => {
 </script>
 
 <template>
-    <div>
-        <section id="bookContent"></section>
+    <div class="bookContent">
+        <section class="bookList" id="bookContent">
+
+        </section>
     </div>
 </template>
+
+<style scoped>
+.bookContent {
+    width: 100%;
+}
+
+.bookContent .bookList {
+    max-width: 600px;
+    width: 100%;
+    margin: 0 auto;
+    background-color: white;
+}
+
+.epub-view body {
+    font-size: 40px;
+}
+</style>

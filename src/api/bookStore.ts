@@ -169,7 +169,7 @@ export const deleteBook = function (id: number) {
   })
 }
 
-export const getBook = function (id: any) {
+export const getBook = function (id: number) {
   return new Promise((resolve, reject) => {
     openIndexDb(dbName, version, {
       onupgradeneeded: upgradeneededVersionOne,
@@ -178,10 +178,9 @@ export const getBook = function (id: any) {
         const transaction = db.transaction('bookStore', 'readonly')
         const objectStore = transaction.objectStore('bookStore')
 
-        const results = objectStore.get(id as number)
+        const results = objectStore.get(id)
         results.onerror = errorHaddlerWithDbClose(db, reject, '获取图书失败')
         results.onsuccess = function (event: any) {
-          debugger;
           db.close()
           resolve({
             status: 200,
