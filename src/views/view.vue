@@ -30,13 +30,14 @@ onMounted(() => {
                 const bookResult = res.data;
                 book = epub(bookResult.content);
 
-                // const firstPage = book.spine.get(0);
-                // const result = book.
-                rendition = book.renderTo('bookContent', {
-                    width: `100%`,
-                    stylesheet: "/book.css"
+                book.ready.then(() => {
+                    rendition = book.renderTo('bookContent', {
+                        width: `100%`,
+                        stylesheet: "/book.css"
+                    });
+                    rendition.display();
                 });
-                var displayed = rendition.display();
+
             }
             else {
                 goHome(`没有找到图书`);
@@ -58,7 +59,16 @@ const nextPage = function () {
         message.error("没有初始化图书");
     }
     else {
-        rendition.next();
+        rendition.next().then(() => {
+            // book.locations.currentLocation;
+
+            // var currentLocation = book.locations.current();
+            // console.log("当前位置:", currentLocation);
+            // book.on("renderer:locationChanged", function (location) {
+            //     console.log("位置已改变:", location);
+            // });
+            // book.goto(targetLocation);
+        })
     }
 }
 
