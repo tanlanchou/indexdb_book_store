@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import epub, { Book, NavItem, Rendition } from 'epubjs'
-import { getBook } from '../api/bookStore'
+import { getBook, updateLocation } from '../api/bookStore'
 import {
   QuestionCircleOutlined,
   ArrowRightOutlined,
@@ -11,10 +11,12 @@ import {
 import { useRoute, useRouter } from 'vue-router'
 import { onMounted, ref } from 'vue'
 import { message } from 'ant-design-vue'
+import { result } from 'lodash'
 
 const route = useRoute()
 const router = useRouter()
 const menu = ref([])
+let originToc = null
 let book: Book
 let rendition: Rendition
 
@@ -27,14 +29,17 @@ function goHome(word: string) {
 }
 // ------------- 通用功能性方法结束 ---------------------
 
+// ------------- 目录相关方法 ---------------------
+
 function tocToMenu(toc: NavItem[]) {
   menu.value = []
+  originToc = toc
   function buildTree(toc: NavItem[]) {
-    const arr = [];
+    const arr = []
     toc.forEach((item: NavItem) => {
       let children = []
       if (Array.isArray(item.subitems) && item.subitems.length > 0) {
-        children = buildTree(item.subitems);
+        children = buildTree(item.subitems)
       }
 
       arr.push({
@@ -43,10 +48,33 @@ function tocToMenu(toc: NavItem[]) {
         children
       })
     })
-    return arr;
+    return arr
   }
   menu.value = buildTree(toc)
 }
+
+const handleMenuClick = function (e: any) {
+  let result = null
+  function deepTree(items: NavItem[]) {
+    const r = items.find((item: NavItem) => {
+      return item.id === e[0]
+    })
+    if (!r) {
+      for (let i = 0; i < items.length; i++) {
+        deepTree(items[i].subitems)
+      }
+    } else {
+      result = r
+    }
+  }
+  deepTree(originToc)
+
+  if (result) {
+    rendition.display(result.href)
+  }
+}
+
+// ------------- 目录相关方法结束 ---------------------
 
 onMounted(() => {
   const id = route.query.id
@@ -63,7 +91,7 @@ onMounted(() => {
           stylesheet: '/book.css'
         })
         book.ready.then(() => {
-          rendition.display()
+          rendition.display(bookResult.location)
           tocToMenu(book.navigation.toc)
         })
       } else {
@@ -86,22 +114,24 @@ const nextPage = function () {
     message.error('没有初始化图书')
   } else {
     rendition.next().then(() => {
-      // book.locations.currentLocation;
-      // var currentLocation = book.locations.current();
-      // console.log("当前位置:", currentLocation);
-      // book.on("renderer:locationChanged", function (location) {
-      //     console.log("位置已改变:", location);
-      // });
-      // book.goto(targetLocation);
+      markLocation()
     })
   }
+}
+
+const markLocation = function () {
+  const cfi = rendition.location.start.cfi
+
+  updateLocation(Number(route.query.id), cfi)
 }
 
 const prevPage = function () {
   if (!rendition) {
     message.error('没有初始化图书')
   } else {
-    rendition.prev()
+    rendition.prev().then(() => {
+      markLocation()
+    })
   }
 }
 
@@ -137,7 +167,7 @@ const openMenu = function () {
   </div>
 
   <a-drawer v-model:open="open" title="目录" placement="left">
-    <a-tree :tree-data="menu" :defaultExpandAll="true"> </a-tree>
+    <a-tree :tree-data="menu" @select="handleMenuClick" :defaultExpandAll="true"> </a-tree>
   </a-drawer>
 </template>
 

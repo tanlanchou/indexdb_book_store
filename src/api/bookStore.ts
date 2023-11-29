@@ -33,8 +33,13 @@ function openIndexDb(name: string, version: number, options: IOptions): IDBOpenD
   db.onupgradeneeded = (event: IDBVersionChangeEvent) => {
     console.log('触发数据库升级')
     if (options.onupgradeneeded) {
-      options.onupgradeneeded(event)
+      options.onupgradeneeded(event);
     }
+
+    if (event.oldVersion === 0) {
+      upgradeneededVersionOne(event);
+    }
+
   }
 
   db.onblocked = (event) => {
@@ -62,13 +67,22 @@ function upgradeneededVersionOne(event: any) {
   objectStore.createIndex('pubdate', 'pubdate', { unique: false })
   objectStore.createIndex('publisher', 'publisher', { unique: false })
   objectStore.createIndex('push_date', 'push_date', { unique: false })
+  objectStore.createIndex('location', 'location', { unique: true })
+
+  const objectStore2 = db.createObjectStore('bookMarks', {
+    keyPath: 'id',
+    autoIncrement: true
+  })
+
+  objectStore2.createIndex('cfi', 'cfi', { unique: true });
+  objectStore2.createIndex('bookId', 'bookId', { unique: false });
+  objectStore2.createIndex('createdate', 'createdate', { unique: false })
 }
 
 export const addBook = function (bookInfo: BookInfo): Promise<IResult> {
   if (!bookInfo.push_date) bookInfo.push_date = new Date()
   return new Promise((resolve, reject) => {
     const dbRequest = openIndexDb(dbName, version, {
-      onupgradeneeded: upgradeneededVersionOne,
       onsuccess: (event: any) => {
         const db = event.target.result as IDBDatabase
         const transaction = db.transaction('bookStore', 'readwrite')
@@ -90,7 +104,6 @@ export const addBook = function (bookInfo: BookInfo): Promise<IResult> {
 export const getBooks = function (): Promise<IResult> {
   return new Promise((resolve, reject) => {
     const dbRequest = openIndexDb(dbName, version, {
-      onupgradeneeded: upgradeneededVersionOne,
       onsuccess: (event: any) => {
         const db = event.target.result as IDBDatabase
         const transaction = db.transaction('bookStore', 'readonly')
@@ -123,7 +136,6 @@ export const getBooks = function (): Promise<IResult> {
 export const existBook = function (title: string): Promise<IResult> {
   return new Promise((resolve, reject) => {
     openIndexDb(dbName, version, {
-      onupgradeneeded: upgradeneededVersionOne,
       onsuccess: (event: any) => {
         const db = event.target.result as IDBDatabase
         const transaction = db.transaction('bookStore', 'readonly')
@@ -148,7 +160,6 @@ export const existBook = function (title: string): Promise<IResult> {
 export const deleteBook = function (id: number) {
   return new Promise((resolve, reject) => {
     openIndexDb(dbName, version, {
-      onupgradeneeded: upgradeneededVersionOne,
       onsuccess: (event: any) => {
         const db = event.target.result as IDBDatabase
         const transaction = db.transaction('bookStore', 'readwrite')
@@ -172,7 +183,6 @@ export const deleteBook = function (id: number) {
 export const getBook = function (id: number) {
   return new Promise((resolve, reject) => {
     openIndexDb(dbName, version, {
-      onupgradeneeded: upgradeneededVersionOne,
       onsuccess: (event: any) => {
         const db = event.target.result as IDBDatabase
         const transaction = db.transaction('bookStore', 'readonly')
@@ -187,6 +197,45 @@ export const getBook = function (id: number) {
             message: 'ok',
             data: event.target.result
           })
+        }
+      },
+      onerror: errorHaddler(reject, '获取图书失败')
+    })
+  })
+}
+
+
+export const updateLocation = function (id: number, location: string) {
+  return new Promise((resolve, reject) => {
+    openIndexDb(dbName, version, {
+      onsuccess: (event: any) => {
+        const db = event.target.result as IDBDatabase
+        const transaction = db.transaction('bookStore', 'readwrite')
+        const objectStore = transaction.objectStore('bookStore')
+
+        const results = objectStore.get(id)
+        results.onerror = errorHaddlerWithDbClose(db, reject, '获取图书失败')
+        results.onsuccess = function (event: any) {
+          var book = results.result;
+          if (book) {
+            book.location = location;
+
+            // 使用 put 方法将更新后的记录存回数据库
+            var updateRequest = objectStore.put(book);
+
+            updateRequest.onsuccess = function (event) {
+              resolve({
+                status: 200,
+                message: 'ok',
+              })
+            };
+
+            updateRequest.onerror = function (event: any) {
+              reject(event.target.error);
+            };
+          } else {
+            reject(`找不到图书`);
+          }
         }
       },
       onerror: errorHaddler(reject, '获取图书失败')
