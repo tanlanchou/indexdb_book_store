@@ -1,5 +1,5 @@
 import { errorHaddler, errorHaddlerWithDbClose } from '@/common/errorHadller'
-import type { BookInfo, IOptions, IResult } from '@/types/booStore'
+import type { BookInfo, BookMarkInfo, IOptions, IResult } from '@/types/booStore'
 
 const dbName = 'bookStore'
 const version = 1
@@ -241,4 +241,110 @@ export const updateLocation = function (id: number, location: string) {
       onerror: errorHaddler(reject, '获取图书失败')
     })
   })
+}
+
+export const addBookMark = function (bookMarkInfo: BookMarkInfo) {
+
+  if (!bookMarkInfo.createdate) bookMarkInfo.createdate = new Date();
+
+  return new Promise((resolve, reject) => {
+    openIndexDb(dbName, version, {
+      onsuccess: (event: any) => {
+        const db = event.target.result as IDBDatabase
+        const transaction = db.transaction('bookMarks', 'readwrite')
+        const objectStore = transaction.objectStore('bookMarks')
+
+        const request = objectStore.add(bookMarkInfo)
+        request.onsuccess = (event: any) => {
+          db.close()
+          resolve({ status: 200, message: '添加书签成功' })
+        }
+
+        request.onerror = errorHaddlerWithDbClose(db, reject, '添加书签失败')
+      },
+      onerror: errorHaddler(reject, '打开数据库失败')
+    })
+  });
+}
+
+export const deleteBookMark = function (id: number) {
+  return new Promise((resolve, reject) => {
+    openIndexDb(dbName, version, {
+      onsuccess: (event: any) => {
+        const db = event.target.result as IDBDatabase
+        const transaction = db.transaction('bookMarks', 'readwrite')
+        const objectStore = transaction.objectStore('bookMarks')
+
+        const request = objectStore.get(id);
+        request.onerror = errorHaddlerWithDbClose(db, reject, '获取书签失败')
+        request.onsuccess = (event: any) => {
+          let bookMark = event.result;
+          if (bookMark) {
+            let deleteRequest = objectStore.delete(id);
+            deleteRequest.onsuccess = function (event) {
+              db.close();
+              resolve({
+                status: 200,
+                message: 'ok',
+              })
+            };
+
+            deleteRequest.onerror = function (event: any) {
+              db.close();
+              reject(event.target.error);
+            };
+          }
+          else {
+            db.close();
+            reject(`找不到书签`);
+          }
+        }
+
+        request.onerror = errorHaddlerWithDbClose(db, reject, '添加书签失败')
+      },
+      onerror: errorHaddler(reject, '打开数据库失败')
+    })
+  });
+}
+
+export const getBookMarks = function () {
+  return new Promise((resolve, reject) => {
+    openIndexDb(dbName, version, {
+      onsuccess: (event: any) => {
+        const db = event.target.result as IDBDatabase
+        const transaction = db.transaction('bookMarks', 'readonly')
+        const objectStore = transaction.objectStore('bookMarks')
+
+        const request = objectStore.getAll();
+        request.onsuccess = (event: any) => {
+          db.close()
+          resolve({ status: 200, data: event.target.result })
+        }
+
+        request.onerror = errorHaddlerWithDbClose(db, reject, '获取书签失败')
+      },
+      onerror: errorHaddler(reject, '打开数据库失败')
+    })
+  });
+}
+
+export const getBookMark = function (id: number) {
+  return new Promise((resolve, reject) => {
+    openIndexDb(dbName, version, {
+      onsuccess: (event: any) => {
+        const db = event.target.result as IDBDatabase
+        const transaction = db.transaction('bookMarks', 'readonly')
+        const objectStore = transaction.objectStore('bookMarks')
+
+        const request = objectStore.get(id)
+        request.onsuccess = (event: any) => {
+          db.close()
+          resolve({ status: 200, data: event.target.result })
+        }
+
+        request.onerror = errorHaddlerWithDbClose(db, reject, '获取书签失败')
+      },
+      onerror: errorHaddler(reject, '打开数据库失败')
+    })
+  });
 }

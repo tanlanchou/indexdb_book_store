@@ -14,6 +14,12 @@ export type BookInfo = {
     push_date?: Date,
 }
 
+export type BookMarkInfo = {
+    cfi: string,
+    bookId: number,
+    createdate?: Date,
+}
+
 export interface IOptions {
     onerror?: (event: Event) => void;
     onsuccess?: (event: Event) => void;

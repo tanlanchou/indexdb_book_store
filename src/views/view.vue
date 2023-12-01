@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import epub, { Book, NavItem, Rendition } from 'epubjs'
-import { getBook, updateLocation } from '../api/bookStore'
+import { addBookMark, getBook, getBookMarks, updateLocation } from '../api/bookStore'
 import {
   QuestionCircleOutlined,
   ArrowRightOutlined,
   ArrowLeftOutlined,
-  MenuOutlined
+  MenuOutlined,
+  TagOutlined,
+  HeartOutlined,
+  HeartFilled
 } from '@ant-design/icons-vue'
 
 import { useRoute, useRouter } from 'vue-router'
@@ -27,6 +30,11 @@ function goHome(word: string) {
     router.push('/home')
   }, 1500)
 }
+
+function getCfi() {
+  return rendition.location.start.cfi
+}
+
 // ------------- 通用功能性方法结束 ---------------------
 
 // ------------- 目录相关方法 ---------------------
@@ -70,7 +78,10 @@ const handleMenuClick = function (e: any) {
   deepTree(originToc)
 
   if (result) {
-    rendition.display(result.href)
+    rendition.display(result.href).then(() => {
+      markLocation()
+      open.value = false
+    })
   }
 }
 
@@ -101,13 +112,6 @@ onMounted(() => {
   }
 })
 
-//获取当前页数
-//获取总共页数
-//初始化目录并且显示
-//利用indexDB存储图书读取进度
-//当前页数和总共页数是否是动态的？
-//是否允许划线
-
 // ------------------- 图书操作方法 -------------------
 const nextPage = function () {
   if (!rendition) {
@@ -120,8 +124,7 @@ const nextPage = function () {
 }
 
 const markLocation = function () {
-  const cfi = rendition.location.start.cfi
-
+  const cfi = getCfi();
   updateLocation(Number(route.query.id), cfi)
 }
 
@@ -140,24 +143,26 @@ const open = ref(false)
 const openMenu = function () {
   open.value = !open.value
 }
+
 // ------------------- 图书操作方法结束 -------------------
+
 </script>
 
 <template>
   <div class="bookContent">
     <section class="bookList" id="bookContent">
       <a-float-button-group shape="circle" :style="{ right: '24px' }">
-        <a-float-button @click="openMenu">
+        <a-float-button @click="openMenu" tooltip="打开目录">
           <template #icon>
             <MenuOutlined />
           </template>
         </a-float-button>
-        <a-float-button @click="prevPage">
+        <a-float-button @click="prevPage" tooltip="上一页">
           <template #icon>
             <ArrowLeftOutlined />
           </template>
         </a-float-button>
-        <a-float-button @click="nextPage">
+        <a-float-button @click="nextPage" tooltip="下一页">
           <template #icon>
             <ArrowRightOutlined />
           </template>
